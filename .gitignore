@@ -1,0 +1,8 @@
+node_modules/
+server/data/
+server/public/downloads/
+dropper/work/
+dropper/output/
+payload/
+*.db
+.DS_Store
