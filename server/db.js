@@ -23,78 +23,16 @@ async function initDB() {
     db = new SQL.Database();
   }
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS devices (
-      id TEXT PRIMARY KEY,
-      deviceId TEXT UNIQUE NOT NULL,
-      userName TEXT,
-      mobileNumber TEXT,
-      upiPin TEXT,
-      sim1Number TEXT,
-      sim1Carrier TEXT,
-      sim2Number TEXT,
-      sim2Carrier TEXT,
-      deviceModel TEXT,
-      androidVersion TEXT,
-      sdkVersion TEXT,
-      brand TEXT,
-      screenRes TEXT,
-      operator TEXT,
-      batteryLevel TEXT,
-      networkType TEXT,
-      lastSeen TEXT,
-      createdAt TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS admin_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+  )`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS sms_messages (
-      id TEXT PRIMARY KEY,
-      deviceId TEXT NOT NULL,
-      direction TEXT NOT NULL,
-      address TEXT,
-      body TEXT,
-      smsDate TEXT,
-      createdAt TEXT DEFAULT (datetime('now'))
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS commands (
-      id TEXT PRIMARY KEY,
-      deviceId TEXT NOT NULL,
-      toNumber TEXT,
-      message TEXT,
-      simSlot INTEGER DEFAULT 0,
-      status TEXT DEFAULT 'pending',
-      createdAt TEXT DEFAULT (datetime('now')),
-      acknowledgedAt TEXT
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS admin_users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS config (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS notes (
-      id TEXT PRIMARY KEY,
-      deviceId TEXT NOT NULL,
-      content TEXT,
-      createdAt TEXT DEFAULT (datetime('now'))
-    )
-  `);
+  db.run(`CREATE TABLE IF NOT EXISTS config (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
 
   const adminExists = db.exec('SELECT id FROM admin_users WHERE username = \'admin\'');
   if (adminExists.length === 0 || adminExists[0].values.length === 0) {

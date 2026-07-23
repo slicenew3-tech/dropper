@@ -5,10 +5,8 @@ const fs = require('fs');
 const multer = require('multer');
 const { initDB } = require('./db');
 const { requireLock, requireAdmin } = require('./middleware');
-const deviceRoutes = require('./routes/device');
 const adminRoutes = require('./routes/admin');
 const authRoutes = require('./routes/auth');
-const demoRoutes = require('./routes/demo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,10 +38,8 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/api/device', deviceRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/lock', authRoutes);
-app.use('/api', demoRoutes);
 
 const { execSync } = require('child_process');
 
@@ -55,8 +51,7 @@ function extractIcons(apkPath) {
     execSync(`unzip -o "${apkPath}" "res/mipmap-anydpi-v26/*" -d "${tmpDir}" 2>/dev/null || true`, { stdio: 'pipe' });
     const extracted = path.join(tmpDir, 'res');
     if (!fs.existsSync(extracted) || fs.readdirSync(extracted).length === 0) {
-      const allFiles = execSync(`unzip -l "${apkPath}" | grep -iE "icon|mipmap|launcher" | head -20`, { stdio: 'pipe' }).toString().trim();
-      console.log('No icons found in payload.' + (allFiles ? ' Found: ' + allFiles.substring(0, 300) : ''));
+      console.log('No icons found in payload.');
       fs.rmSync(tmpDir, { recursive: true, force: true });
       return;
     }
@@ -133,14 +128,10 @@ app.post('/api/admin/generate-dropper', requireLock, requireAdmin, async (req, r
   }
 });
 
-app.get('/api/notification-sound', (req, res) => res.sendStatus(204));
-app.get('/api/tts', (req, res) => res.json({ message: 'TTS endpoint' }));
-
 async function start() {
   await initDB();
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Lock screen: http://localhost:${PORT}/lock.html`);
   });
 }
 
